@@ -23,32 +23,53 @@ Write-Host "[1/6] Checking for XAMPP..." -ForegroundColor Yellow
 
 $xamppInstaller = "$env:TEMP\xampp-installer.exe"
 
-# Use the direct Apache Friends mirror URL (avoids SourceForge redirect pages
-# which Invoke-WebRequest follows into an HTML landing page, producing a
-# corrupt non-executable file that causes the "file or directory is corrupted"
-# error from Start-Process).
-$xamppUrl = "https://www.apachefriends.org/xampp-files/8.2.12/xampp-windows-x64-8.2.12-0-VS16-installer.exe"
+# Download candidate URLs in priority order.  The Apache Friends CDN is tried
+# first; SourceForge is used as a fallback in case the primary mirror is down
+# or rate-limiting direct connections.
+$xamppUrls = @(
+    "https://www.apachefriends.org/xampp-files/8.2.12/xampp-windows-x64-8.2.12-0-VS16-installer.exe",
+    "https://downloads.sourceforge.net/project/xampp/XAMPP%20Windows/8.2.12/xampp-windows-x64-8.2.12-0-VS16-installer.exe"
+)
 
 if (-not (Test-Path "$XamppPath\xampp-control.exe")) {
     Write-Host "  Downloading XAMPP installer..." -ForegroundColor Gray
 
-    # Use a WebClient with a browser-like User-Agent so CDNs serve the binary.
-    $wc = New-Object System.Net.WebClient
-    $wc.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
-    try {
-        $wc.DownloadFile($xamppUrl, $xamppInstaller)
-    } finally {
-        $wc.Dispose()
+    $downloaded = $false
+    foreach ($xamppUrl in $xamppUrls) {
+        Write-Host "  Trying: $xamppUrl" -ForegroundColor Gray
+        try {
+            # Use a WebClient with a browser-like User-Agent so CDNs serve the
+            # binary rather than returning an HTML landing / redirect page.
+            $wc = New-Object System.Net.WebClient
+            $wc.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
+            # Follow redirects (SourceForge uses them heavily).
+            [System.Net.ServicePointManager]::SecurityProtocol =
+                [System.Net.SecurityProtocolType]::Tls12 -bor
+                [System.Net.SecurityProtocolType]::Tls13
+            $wc.DownloadFile($xamppUrl, $xamppInstaller)
+            $wc.Dispose()
+
+            # Sanity-check: a real installer is several hundred MB; an HTML
+            # error page is tiny.
+            $installerSize = (Get-Item $xamppInstaller -ErrorAction Stop).Length
+            if ($installerSize -ge 10MB) {
+                $downloaded = $true
+                break
+            }
+
+            Write-Host "  Download from this URL appears truncated ($([math]::Round($installerSize/1KB)) KB) — trying next mirror." -ForegroundColor Yellow
+            Remove-Item $xamppInstaller -Force -ErrorAction SilentlyContinue
+        } catch {
+            Write-Host "  Download failed: $_" -ForegroundColor Yellow
+            Remove-Item $xamppInstaller -Force -ErrorAction SilentlyContinue
+        }
     }
 
-    # Sanity-check: a real installer is several hundred MB; an HTML error page
-    # is tiny. Abort early with a clear message instead of a cryptic COM error.
-    $installerSize = (Get-Item $xamppInstaller).Length
-    if ($installerSize -lt 10MB) {
-        Remove-Item $xamppInstaller -Force
-        throw "XAMPP download appears corrupt or incomplete (only $([math]::Round($installerSize/1KB)) KB). " +
-              "Please download manually from https://www.apachefriends.org/download.html " +
-              "and place the installer at: $xamppInstaller"
+    if (-not $downloaded) {
+        throw ("XAMPP download failed from all mirrors.`n" +
+               "Please download xampp-windows-x64-8.2.12-0-VS16-installer.exe manually " +
+               "from https://www.apachefriends.org/download.html and place it at:`n  $xamppInstaller`n" +
+               "Then re-run this script.")
     }
 
     Write-Host "  Running XAMPP silent install..." -ForegroundColor Gray
@@ -162,13 +183,56 @@ Write-Host "  Users created (see setup/README.md for credentials)" -ForegroundCo
 # ---------------------------------------------------------------------------
 Write-Host "`n[5/6] Starting Apache..." -ForegroundColor Yellow
 
-# Start Apache as a service (XAMPP installs it as 'Apache2.4')
-$svc = Get-Service -Name "Apache2.4" -ErrorAction SilentlyContinue
+# XAMPP may register the Apache service under slightly different names
+# depending on the version and whether the service was installed via the
+# XAMPP control panel or a previous script run.  Try the most common names.
+$apacheServiceNames = @("Apache2.4", "Apache2", "Apache")
+$svc = $null
+foreach ($svcName in $apacheServiceNames) {
+    $svc = Get-Service -Name $svcName -ErrorAction SilentlyContinue
+    if ($svc) {
+        Write-Host "  Found Apache service: '$svcName'" -ForegroundColor Gray
+        break
+    }
+}
+
+$httpdExe = "$XamppPath\apache\bin\httpd.exe"
+
 if ($svc) {
-    Start-Service "Apache2.4" -ErrorAction SilentlyContinue
+    # Service exists — start it if it isn't already running.
+    try {
+        if ($svc.Status -ne 'Running') {
+            Start-Service $svc.Name -ErrorAction Stop
+        }
+        Write-Host "  Apache service '$($svc.Name)' is running." -ForegroundColor Green
+    } catch {
+        Write-Host "  Warning: could not start Apache service — falling back to httpd.exe." -ForegroundColor Yellow
+        if (Test-Path $httpdExe) {
+            & $httpdExe -k start 2>$null
+        }
+    }
 } else {
-    # Fall back to xampp shell command
-    & "$XamppPath\apache\bin\httpd.exe" -k start 2>$null
+    # No service found.  This happens when XAMPP was installed manually and
+    # the "Install as service" step was skipped in the XAMPP control panel.
+    # Register the service now, then start it.
+    if (Test-Path $httpdExe) {
+        Write-Host "  Apache service not registered — installing via httpd.exe..." -ForegroundColor Yellow
+        & $httpdExe -k install 2>$null
+        Start-Sleep -Seconds 2
+        # Refresh — the service should now exist as 'Apache2.4'.
+        $svc = Get-Service -Name "Apache2.4" -ErrorAction SilentlyContinue
+        if ($svc) {
+            Start-Service "Apache2.4" -ErrorAction SilentlyContinue
+            Write-Host "  Apache service registered and started." -ForegroundColor Green
+        } else {
+            # Last resort: launch httpd directly (not as a Windows service).
+            & $httpdExe -k start 2>$null
+            Write-Host "  Apache started directly via httpd.exe (not as a Windows service)." -ForegroundColor Green
+        }
+    } else {
+        Write-Host "  WARNING: httpd.exe not found at $httpdExe" -ForegroundColor Red
+        Write-Host "  Please start Apache manually from the XAMPP Control Panel." -ForegroundColor Red
+    }
 }
 
 # Open port 80 in Windows Firewall
