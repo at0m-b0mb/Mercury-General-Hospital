@@ -100,8 +100,15 @@ To reset to a clean CTF state:
 ```powershell
 # Delete the SQLite database (resets to seeded data on next page load)
 Remove-Item "C:\xampp\htdocs\includes\hospital.db" -Force
-# Restart Apache
-Restart-Service Apache2.4
+
+# Restart Apache — try the service name XAMPP registered on your machine
+# (check Task Manager → Services if unsure which name was used)
+$svc = ("Apache2.4","Apache2","Apache" | ForEach-Object {
+    Get-Service -Name $_ -ErrorAction SilentlyContinue
+} | Select-Object -First 1)
+if ($svc) { Restart-Service $svc.Name } else {
+    Write-Host "Apache service not found — restart it from the XAMPP Control Panel."
+}
 ```
 
 ---

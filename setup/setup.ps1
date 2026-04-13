@@ -162,20 +162,82 @@ Write-Host "  Users created (see setup/README.md for credentials)" -ForegroundCo
 # ---------------------------------------------------------------------------
 Write-Host "`n[5/6] Starting Apache..." -ForegroundColor Yellow
 
-# Start Apache as a service (XAMPP installs it as 'Apache2.4')
-$svc = Get-Service -Name "Apache2.4" -ErrorAction SilentlyContinue
+$httpdExe = "$XamppPath\apache\bin\httpd.exe"
+
+# XAMPP can register Apache under different service names depending on the
+# version and whether it was installed silently vs manually via the GUI.
+# Manually-installed XAMPP does NOT auto-register Apache as a Windows service —
+# the XAMPP Control Panel "Install" button does that.  We handle it here.
+$apacheSvcNames = @("Apache2.4", "Apache2", "Apache")
+$svc = $null
+foreach ($n in $apacheSvcNames) {
+    $svc = Get-Service -Name $n -ErrorAction SilentlyContinue
+    if ($svc) { Write-Host "  Found Apache service: $n" -ForegroundColor Gray; break }
+}
+
+if (-not $svc) {
+    # Service not registered — install it so Start-Service works reliably.
+    if (Test-Path $httpdExe) {
+        Write-Host "  Apache not registered as a service — registering now..." -ForegroundColor Gray
+        $inst = Start-Process -FilePath $httpdExe -ArgumentList "-k install" `
+                              -Wait -PassThru -NoNewWindow
+        if ($inst.ExitCode -eq 0) {
+            Write-Host "  Apache service registered successfully." -ForegroundColor Gray
+            # Re-probe for the newly registered service
+            foreach ($n in $apacheSvcNames) {
+                $svc = Get-Service -Name $n -ErrorAction SilentlyContinue
+                if ($svc) { break }
+            }
+        } else {
+            Write-Host "  Service registration returned exit $($inst.ExitCode) — will try direct launch." -ForegroundColor Yellow
+        }
+    } else {
+        Write-Host "  httpd.exe not found at: $httpdExe" -ForegroundColor Red
+        Write-Host "  Is XAMPP installed at $XamppPath ?" -ForegroundColor Red
+    }
+}
+
 if ($svc) {
-    Start-Service "Apache2.4" -ErrorAction SilentlyContinue
+    if ($svc.Status -ne 'Running') {
+        Start-Service $svc.Name -ErrorAction SilentlyContinue
+        Start-Sleep -Seconds 3
+        $svc.Refresh()
+    }
+    if ($svc.Status -eq 'Running') {
+        Write-Host "  Apache service '$($svc.Name)' is running." -ForegroundColor Green
+    } else {
+        Write-Host "  Service '$($svc.Name)' did not start — falling back to direct launch." -ForegroundColor Yellow
+        if (Test-Path $httpdExe) {
+            Start-Process -FilePath $httpdExe -ArgumentList "-k start" -NoNewWindow
+            Start-Sleep -Seconds 2
+        }
+    }
 } else {
-    # Fall back to xampp shell command
-    & "$XamppPath\apache\bin\httpd.exe" -k start 2>$null
+    # Last resort: start httpd.exe directly as a foreground process
+    Write-Host "  Starting Apache directly (no Windows service)..." -ForegroundColor Yellow
+    if (Test-Path $httpdExe) {
+        Start-Process -FilePath $httpdExe -ArgumentList "-k start" -NoNewWindow
+        Start-Sleep -Seconds 2
+    } else {
+        Write-Host "  ERROR: Cannot locate httpd.exe — please start Apache from the" -ForegroundColor Red
+        Write-Host "  XAMPP Control Panel (click 'Start' next to Apache)." -ForegroundColor Red
+    }
 }
 
 # Open port 80 in Windows Firewall
 New-NetFirewallRule -DisplayName "MGH CTF HTTP" -Direction Inbound `
     -Protocol TCP -LocalPort 80 -Action Allow -ErrorAction SilentlyContinue | Out-Null
 
-Write-Host "  Apache started; port 80 open in firewall" -ForegroundColor Green
+# Quick sanity-check: is something listening on port 80?
+Start-Sleep -Seconds 1
+$port80 = $null
+try { $port80 = (netstat -an 2>$null | Select-String ":80 .*LISTEN") } catch {}
+if ($port80) {
+    Write-Host "  Apache is listening on port 80." -ForegroundColor Green
+} else {
+    Write-Host "  Warning: port 80 not detected yet. If the portal does not load," -ForegroundColor Yellow
+    Write-Host "  open the XAMPP Control Panel and click Start next to Apache." -ForegroundColor Yellow
+}
 
 # ---------------------------------------------------------------------------
 # 6. Print summary
