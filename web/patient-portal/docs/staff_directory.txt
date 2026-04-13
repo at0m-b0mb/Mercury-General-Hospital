@@ -1,0 +1,17 @@
+MERCURY GENERAL HOSPITAL — STAFF DIRECTORY (Internal)
+Updated: 2009-05-15
+
+ADMINISTRATION
+  - CEO:              Margaret H. Bloom
+  - CFO:              Donald R. Kress
+  - Head of Security: Officer T. Williams
+
+MEDICAL STAFF
+  - Chief of Medicine: Dr. Susan Alvarez
+  - Emergency Lead:    Dr. Ramesh Patel  (ext. 214)
+  - Dental Lead:       Dr. Carol Ng      (ext. 318)
+  - Radiology:         Dr. James Ortiz   (ext. 407)
+
+IT SYSTEMS
+  - Sys Admin:  Kyle Barton  (ext. 501)
+  - Helpdesk:   helpdesk@mercurygen.local

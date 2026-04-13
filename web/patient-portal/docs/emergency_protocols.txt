@@ -1,0 +1,9 @@
+MERCURY GENERAL HOSPITAL — EMERGENCY PROTOCOLS (Rev. 4)
+
+CODE BLUE  — Cardiac/respiratory arrest. Dial 99. Crash cart location: every nursing station.
+CODE RED   — Fire. Evacuate via stairwells. Do not use elevators.
+CODE GREY  — Combative person. Security: ext. 500.
+CODE SILVER — Person with weapon. Lockdown. Dial 911 then ext. 500.
+CODE AMBER — Infant/child abduction. Lock all exits immediately.
+
+For full protocol manual see: \\MGHFS01\Protocols\EmergencyProtocols_Full.pdf

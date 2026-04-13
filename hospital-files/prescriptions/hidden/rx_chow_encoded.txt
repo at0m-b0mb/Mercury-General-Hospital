@@ -1,0 +1,21 @@
+MERCURY GENERAL HOSPITAL
+Pharmacy / Prescription Archive
+File: RX-20090601-CHW
+Status: CONFIDENTIAL — DO NOT DISTRIBUTE
+Attending: Dr. R. Patel
+Date: 2009-06-01 04:12
+
+Patient: [REDACTED — see patient file MGH-0044]
+Prescribed: Amoxicillin 500mg x7 days (post-extraction prophylaxis)
+            Ibuprofen 400mg PRN pain
+
+--- ATTACHED NOTE (encoded per hospital data-handling policy) ---
+
+V0FSRUhPVVNFIENPT1JESU5BVEVTOiAzNi4xMDI2IE4sIDExNS4xNzM0IFcgfCAzODUwIFMg
+VmFsbGV5IFZpZXcgQmx2ZCwgTGFzIFZlZ2FzLCBOViA4OTEwMyB8IEZMQUd7cHIzc2NyMXB0
+MTBuX2MwMHJkc19DaDB3X1c0cjNoMHVzM18zNk5fMTE1V18zODUwX1Y0bGwzeV9WMTN3fQ==
+
+--- END OF ATTACHED NOTE ---
+
+This file is archived under: \\MGHFS01\Prescriptions\Hidden\
+Access restricted to: pharmacy staff and attending physicians only.

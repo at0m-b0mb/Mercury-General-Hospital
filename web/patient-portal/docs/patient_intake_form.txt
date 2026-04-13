@@ -1,0 +1,10 @@
+MERCURY GENERAL HOSPITAL — PATIENT INTAKE FORM
+(Template — not a real patient record)
+
+Date of Visit: ___________
+Patient Name:  ___________  DOB: ___________
+Insurance #:   ___________
+Chief Complaint: ________________________________________
+Allergies: _____________________________________________
+Current Medications: ____________________________________
+Attending Physician: ____________________________________

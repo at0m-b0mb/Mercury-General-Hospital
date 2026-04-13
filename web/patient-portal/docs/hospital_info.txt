@@ -1,0 +1,15 @@
+MERCURY GENERAL HOSPITAL
+Las Vegas, Nevada 89101
+24-Hour Emergency: (702) 555-0199
+Main Line: (702) 555-0100
+
+Established 1987. Accredited by The Joint Commission.
+
+Departments:
+  - Emergency Medicine
+  - Dentistry & Oral Surgery
+  - Radiology
+  - Internal Medicine
+  - Psychiatry
+
+Visiting Hours: 8:00 AM – 8:00 PM daily.

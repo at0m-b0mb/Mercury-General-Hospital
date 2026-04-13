@@ -1,0 +1,9 @@
+User-agent: *
+Disallow: /staff-backup/
+Disallow: /admin-console/
+
+# Note to webmaster: please confirm /staff-backup/ is not publicly accessible
+# before the portal goes live — IT generated credential backup files there.
+# Also: prescription archive not yet moved off the web root.
+#   Current path: ../hospital-files/prescriptions/
+# Contact: it-helpdesk@mercury-general.internal

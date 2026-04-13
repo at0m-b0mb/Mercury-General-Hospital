@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Mercury General Hospital — IT Administration Console</title>
+    <!--
+        ====================================================
+        Mercury General Hospital — IT System Configuration
+        Portal Version: 2.3   Last updated: 2009-05-28
+        ====================================================
+
+        Authentication:
+          - Session-based (PHP sessions via session.php)
+          - Role field stored in $_SESSION['user']['role']
+
+        IMPORTANT — Role Access Control (temporary workaround):
+          The portal reads the HTTP Cookie named 'role' BEFORE
+          the session role.  This was added to allow IT staff
+          to impersonate roles during testing without needing
+          separate accounts.  **Must be removed before go-live.**
+          See camera.php, line: $_COOKIE['role'] ?? $session['role']
+          Valid values: admin | doctor | staff
+
+        Prescription Archive:
+          Encoded backup files located at:
+          ../hospital-files/prescriptions/hidden/
+          (relative to the portal docs/ directory)
+          File: rx_chow_encoded.txt (Base64)
+
+        ====================================================
+    -->
+    <style>
+        body { font-family: Arial, sans-serif; background: #1a1a2e; color: #eee; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
+        .box { background: #16213e; padding: 40px; border-radius: 8px; width: 360px; box-shadow: 0 4px 20px rgba(0,0,0,.6); }
+        h1 { color: #e94560; font-size: 1.2rem; margin-bottom: 6px; }
+        p { color: #aaa; font-size: .85rem; margin-bottom: 22px; }
+        input { width: 100%; padding: 10px; margin-bottom: 14px; background: #0f3460; border: 1px solid #e94560; border-radius: 4px; color: #fff; font-size: .95rem; box-sizing: border-box; }
+        button { width: 100%; padding: 11px; background: #e94560; color: #fff; border: none; border-radius: 4px; font-size: 1rem; cursor: pointer; }
+        button:hover { background: #c73652; }
+        small { display: block; margin-top: 14px; color: #666; font-size: .75rem; text-align: center; }
+    </style>
+</head>
+<body>
+<div class="box">
+    <h1>🔒 IT Administration Console</h1>
+    <p>Mercury General Hospital — Internal Systems<br>Authorised personnel only.</p>
+    <form action="#" method="POST">
+        <input type="text"     name="ituser" placeholder="IT Username" autocomplete="off">
+        <input type="password" name="itpass" placeholder="IT Password">
+        <button type="submit">Authenticate</button>
+    </form>
+    <small>All access attempts are logged. Unauthorised access is a criminal offence.</small>
+</div>
+</body>
+</html>

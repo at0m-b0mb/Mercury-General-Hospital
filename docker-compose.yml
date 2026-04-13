@@ -1,0 +1,11 @@
+services:
+  portal:
+    build: .
+    ports:
+      - "80:80"
+    # Persist the SQLite database across container restarts
+    volumes:
+      - portal_db:/var/www/html/includes
+
+volumes:
+  portal_db:
