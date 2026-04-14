@@ -23,11 +23,11 @@ Write-Host "[1/6] Checking for XAMPP..." -ForegroundColor Yellow
 
 $xamppInstaller = "$env:TEMP\xampp-installer.exe"
 
-# Use the direct Apache Friends mirror URL (avoids SourceForge redirect pages
-# which Invoke-WebRequest follows into an HTML landing page, producing a
-# corrupt non-executable file that causes the "file or directory is corrupted"
-# error from Start-Process).
-$xamppUrl = "https://www.apachefriends.org/xampp-files/8.2.12/xampp-windows-x64-8.2.12-0-VS16-installer.exe"
+# Use the SourceForge direct download mirror URL (downloads.sourceforge.net
+# issues an HTTP 302 redirect straight to a CDN mirror, which WebClient
+# follows correctly — unlike the /download page which returns HTML).
+# The Apache Friends CDN URL for 8.2.12 no longer resolves (404).
+$xamppUrl = "https://downloads.sourceforge.net/project/xampp/XAMPP%20Windows/8.2.12/xampp-windows-x64-8.2.12-0-VS16-installer.exe"
 
 if (-not (Test-Path "$XamppPath\xampp-control.exe")) {
     Write-Host "  Downloading XAMPP installer..." -ForegroundColor Gray
