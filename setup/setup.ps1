@@ -23,12 +23,11 @@ Write-Host "[1/6] Checking for XAMPP..." -ForegroundColor Yellow
 
 $xamppInstaller = "$env:TEMP\xampp-installer.exe"
 
-# SourceForge download URL with ?use_mirror=autoselect.
-# This makes SourceForge return an HTTP 302 redirect straight to the binary
-# on a CDN mirror, instead of the HTML countdown/selector page.
-# The Referer header is required - SourceForge checks it and serves the
-# HTML page (not a redirect) if the request looks like it has no referrer.
-$xamppUrl     = "https://sourceforge.net/projects/xampp/files/XAMPP%20Windows/8.2.12/xampp-windows-x64-8.2.12-0-VS16-installer.exe/download?use_mirror=autoselect"
+# This is the exact URL the browser opens when clicking Download on apachefriends.org.
+# In a browser it shows a 5-second countdown then saves the file.
+# curl -L skips the countdown entirely by following the HTTP redirect chain
+# straight to the CDN mirror binary.
+$xamppUrl     = "https://sourceforge.net/projects/xampp/files/XAMPP%20Windows/8.2.12/xampp-windows-x64-8.2.12-0-VS16-installer.exe/download"
 $xamppReferer = "https://www.apachefriends.org/download.html"
 
 if (-not (Test-Path "$XamppPath\xampp-control.exe")) {
