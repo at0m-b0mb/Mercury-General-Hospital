@@ -1,5 +1,5 @@
 # =============================================================================
-#  Mercury General Hospital — CTF Machine Setup Script
+#  Mercury General Hospital - CTF Machine Setup Script
 #  Run as Administrator on Windows Server 2019 / Windows 10+
 # =============================================================================
 #Requires -RunAsAdministrator
@@ -23,30 +23,31 @@ Write-Host "[1/6] Checking for XAMPP..." -ForegroundColor Yellow
 
 $xamppInstaller = "$env:TEMP\xampp-installer.exe"
 
-# Use the SourceForge direct download mirror URL (downloads.sourceforge.net
-# issues an HTTP 302 redirect straight to a CDN mirror, which WebClient
-# follows correctly — unlike the /download page which returns HTML).
-# The Apache Friends CDN URL for 8.2.12 no longer resolves (404).
+# SourceForge direct download URL for XAMPP 8.2.12 Windows x64.
+# The Apache Friends CDN URL for this version no longer resolves (404).
 $xamppUrl = "https://downloads.sourceforge.net/project/xampp/XAMPP%20Windows/8.2.12/xampp-windows-x64-8.2.12-0-VS16-installer.exe"
 
 if (-not (Test-Path "$XamppPath\xampp-control.exe")) {
 
     # Allow the user to pre-place the installer to skip the download entirely.
+    # If the file already exists at $xamppInstaller and is larger than 10 MB,
+    # it is assumed to be the real binary and the download is skipped.
     $preExisting = (Test-Path $xamppInstaller) -and ((Get-Item $xamppInstaller).Length -gt 10MB)
 
     if ($preExisting) {
-        Write-Host "  Found pre-placed installer at $xamppInstaller — skipping download." -ForegroundColor Gray
+        Write-Host "  Found pre-placed installer at $xamppInstaller - skipping download." -ForegroundColor Gray
     } else {
         Write-Host "  Downloading XAMPP installer..." -ForegroundColor Gray
 
         $downloaded = $false
 
-        # Prefer curl.exe (ships with Windows 10 1803+).  It follows SourceForge's
-        # multi-hop redirects reliably; WebClient can get stuck on the HTML mirror-
-        # selector page that SourceForge sometimes returns.
-        # Note: avoid ?. (null-conditional) — not supported on Windows PowerShell 5.1.
+        # Prefer curl.exe (ships with Windows 10 1803+). It follows SourceForge
+        # multi-hop redirects reliably. WebClient can get an HTML mirror-selector
+        # page instead of the binary.
+        # Note: avoid the ?. operator - not supported on Windows PowerShell 5.1.
         $curlCmd = Get-Command curl.exe -ErrorAction SilentlyContinue
         $curlBin = if ($curlCmd) { $curlCmd.Source } else { $null }
+
         if ($curlBin) {
             Write-Host "  Using curl.exe..." -ForegroundColor Gray
             $curlArgs = @("-L", "--max-redirs", "10", "--retry", "3",
@@ -78,11 +79,12 @@ if (-not (Test-Path "$XamppPath\xampp-control.exe")) {
     $installerSize = (Get-Item $xamppInstaller).Length
     if ($installerSize -lt 10MB) {
         Remove-Item $xamppInstaller -Force -ErrorAction SilentlyContinue
-        throw "XAMPP installer is only $([math]::Round($installerSize/1KB)) KB — this is an HTML page, not the binary.`n" +
-              "SourceForge is blocking automated downloads. Please:`n" +
-              "  1. Download XAMPP 8.2.12 (Windows x64) manually from https://www.apachefriends.org/download.html`n" +
-              "  2. Rename/copy the file to: $xamppInstaller`n" +
-              "  3. Re-run this script."
+        $msg  = "XAMPP installer is only $([math]::Round($installerSize/1KB)) KB - this is an HTML page, not the binary.`n"
+        $msg += "SourceForge is blocking automated downloads. Please:`n"
+        $msg += "  1. Download XAMPP 8.2.12 (Windows x64) from https://www.apachefriends.org/download.html`n"
+        $msg += "  2. Copy the downloaded file to: $xamppInstaller`n"
+        $msg += "  3. Re-run this script."
+        throw $msg
     }
 
     Write-Host "  Running XAMPP silent install..." -ForegroundColor Gray
@@ -296,8 +298,8 @@ Write-Host "  Low-priv SSH: reception / W0lfpack2009!"
 Write-Host "  Mid-priv SSH: drpatel   / H4ng0v3rMD!"
 Write-Host ""
 Write-Host "  FLAGS:"
-Write-Host "    FLAG 3 (Dental Record)   : patient DB — exploit IDOR on /records.php?pid=MGH-0044"
-Write-Host "    FLAG 4 (Security Footage): camera DB  — forge Cookie: role=admin on /camera.php"
+Write-Host "    FLAG 3 (Dental Record)   : patient DB - exploit IDOR on /records.php?pid=MGH-0044"
+Write-Host "    FLAG 4 (Security Footage): camera DB  - forge Cookie: role=admin on /camera.php"
 Write-Host "    FLAG 5 (Prescription)    : $hospitalDir\prescriptions\hidden\rx_chow_encoded.txt"
 Write-Host "                               (path traversal: ?file=../hospital-files/prescriptions/hidden/rx_chow_encoded.txt then Base64 decode)"
 Write-Host ""
