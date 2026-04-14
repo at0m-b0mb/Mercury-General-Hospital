@@ -23,12 +23,10 @@ Write-Host "[1/6] Checking for XAMPP..." -ForegroundColor Yellow
 
 $xamppInstaller = "$env:TEMP\xampp-installer.exe"
 
-# This is the exact URL the browser opens when clicking Download on apachefriends.org.
-# In a browser it shows a 5-second countdown then saves the file.
-# curl -L skips the countdown entirely by following the HTTP redirect chain
-# straight to the CDN mirror binary.
-$xamppUrl     = "https://sourceforge.net/projects/xampp/files/XAMPP%20Windows/8.2.12/xampp-windows-x64-8.2.12-0-VS16-installer.exe/download"
-$xamppReferer = "https://www.apachefriends.org/download.html"
+# SourceForge "latest download" page - same as clicking Download on apachefriends.org.
+# The page shows a 6-second HTML countdown then redirects to a CDN mirror.
+# We fetch the page, parse the real CDN .exe URL out of it, then download directly.
+$xamppSfPage = "https://sourceforge.net/projects/xampp/files/latest/download"
 
 if (-not (Test-Path "$XamppPath\xampp-control.exe")) {
 
@@ -40,39 +38,48 @@ if (-not (Test-Path "$XamppPath\xampp-control.exe")) {
     if ($preExisting) {
         Write-Host "  Found pre-placed installer at $xamppInstaller - skipping download." -ForegroundColor Gray
     } else {
-        Write-Host "  Downloading XAMPP installer (this may take a few minutes)..." -ForegroundColor Gray
+        Write-Host "  Resolving XAMPP download URL from SourceForge..." -ForegroundColor Gray
 
-        $downloaded = $false
-
-        # Prefer curl.exe (ships with Windows 10 1803+). It follows HTTP 302
-        # redirects reliably. The -e flag sets the Referer header that
-        # SourceForge requires to serve a redirect instead of HTML.
-        # Note: avoid the ?. operator - not supported on Windows PowerShell 5.1.
-        $curlCmd = Get-Command curl.exe -ErrorAction SilentlyContinue
-        $curlBin = if ($curlCmd) { $curlCmd.Source } else { $null }
-
-        if ($curlBin) {
-            Write-Host "  Using curl.exe..." -ForegroundColor Gray
-            $curlArgs = @("-L", "--max-redirs", "10", "--retry", "3",
-                          "-e", $xamppReferer,
-                          "-A", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
-                          "-o", $xamppInstaller, $xamppUrl)
-            $curl = Start-Process -FilePath $curlBin -ArgumentList $curlArgs `
-                        -Wait -PassThru -NoNewWindow
-            if ($curl.ExitCode -eq 0 -and
-                (Test-Path $xamppInstaller) -and
-                (Get-Item $xamppInstaller).Length -gt 10MB) {
-                $downloaded = $true
-            }
+        # Step 1: fetch the SourceForge countdown page and extract the real CDN URL.
+        # SourceForge embeds it in a meta-refresh tag, e.g.:
+        #   <meta http-equiv="refresh" content="5; url=https://nchc.dl.sourceforge.net/.../xampp-...exe">
+        $ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+        try {
+            $sfHtml = Invoke-WebRequest -Uri $xamppSfPage -UseBasicParsing `
+                          -MaximumRedirection 10 `
+                          -Headers @{ "User-Agent" = $ua } |
+                          Select-Object -ExpandProperty Content
+        } catch {
+            $sfHtml = ""
+            Write-Host "  Warning: could not fetch SourceForge page: $_" -ForegroundColor Yellow
         }
 
-        if (-not $downloaded) {
-            Write-Host "  Falling back to WebClient..." -ForegroundColor Gray
+        # Parse the CDN URL from the meta-refresh (or any .exe link in the page).
+        $cdnUrl = $null
+        $m = [regex]::Match($sfHtml, 'url=(https://[^\s"'']+\.exe)')
+        if ($m.Success) {
+            $cdnUrl = $m.Groups[1].Value
+        } else {
+            $m2 = [regex]::Match($sfHtml, '(https://[a-z0-9\-]+\.dl\.sourceforge\.net/[^\s"'']+\.exe)')
+            if ($m2.Success) { $cdnUrl = $m2.Groups[1].Value }
+        }
+
+        if ($cdnUrl) {
+            Write-Host "  Downloading XAMPP from: $cdnUrl" -ForegroundColor Gray
+            Write-Host "  (this may take a few minutes)..." -ForegroundColor Gray
             $wc = New-Object System.Net.WebClient
-            $wc.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
-            $wc.Headers.Add("Referer", $xamppReferer)
+            $wc.Headers.Add("User-Agent", $ua)
             try {
-                $wc.DownloadFile($xamppUrl, $xamppInstaller)
+                $wc.DownloadFile($cdnUrl, $xamppInstaller)
+            } finally {
+                $wc.Dispose()
+            }
+        } else {
+            Write-Host "  Could not parse CDN URL - falling back to direct SourceForge download." -ForegroundColor Yellow
+            $wc = New-Object System.Net.WebClient
+            $wc.Headers.Add("User-Agent", $ua)
+            try {
+                $wc.DownloadFile($xamppSfPage, $xamppInstaller)
             } finally {
                 $wc.Dispose()
             }
