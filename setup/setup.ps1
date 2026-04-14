@@ -30,25 +30,57 @@ $xamppInstaller = "$env:TEMP\xampp-installer.exe"
 $xamppUrl = "https://downloads.sourceforge.net/project/xampp/XAMPP%20Windows/8.2.12/xampp-windows-x64-8.2.12-0-VS16-installer.exe"
 
 if (-not (Test-Path "$XamppPath\xampp-control.exe")) {
-    Write-Host "  Downloading XAMPP installer..." -ForegroundColor Gray
 
-    # Use a WebClient with a browser-like User-Agent so CDNs serve the binary.
-    $wc = New-Object System.Net.WebClient
-    $wc.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
-    try {
-        $wc.DownloadFile($xamppUrl, $xamppInstaller)
-    } finally {
-        $wc.Dispose()
+    # Allow the user to pre-place the installer to skip the download entirely.
+    $preExisting = (Test-Path $xamppInstaller) -and ((Get-Item $xamppInstaller).Length -gt 10MB)
+
+    if ($preExisting) {
+        Write-Host "  Found pre-placed installer at $xamppInstaller — skipping download." -ForegroundColor Gray
+    } else {
+        Write-Host "  Downloading XAMPP installer..." -ForegroundColor Gray
+
+        $downloaded = $false
+
+        # Prefer curl.exe (ships with Windows 10 1803+).  It follows SourceForge's
+        # multi-hop redirects reliably; WebClient can get stuck on the HTML mirror-
+        # selector page that SourceForge sometimes returns.
+        $curlBin = (Get-Command curl.exe -ErrorAction SilentlyContinue)?.Source
+        if ($curlBin) {
+            Write-Host "  Using curl.exe..." -ForegroundColor Gray
+            $curlArgs = "-L", "--max-redirs", "10", "--retry", "3",
+                        "-A", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+                        "-o", $xamppInstaller, $xamppUrl
+            $curl = Start-Process -FilePath $curlBin -ArgumentList $curlArgs `
+                        -Wait -PassThru -NoNewWindow
+            if ($curl.ExitCode -eq 0 -and
+                (Test-Path $xamppInstaller) -and
+                (Get-Item $xamppInstaller).Length -gt 10MB) {
+                $downloaded = $true
+            }
+        }
+
+        if (-not $downloaded) {
+            Write-Host "  Falling back to WebClient..." -ForegroundColor Gray
+            $wc = New-Object System.Net.WebClient
+            $wc.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
+            try {
+                $wc.DownloadFile($xamppUrl, $xamppInstaller)
+            } finally {
+                $wc.Dispose()
+            }
+        }
     }
 
     # Sanity-check: a real installer is several hundred MB; an HTML error page
     # is tiny. Abort early with a clear message instead of a cryptic COM error.
     $installerSize = (Get-Item $xamppInstaller).Length
     if ($installerSize -lt 10MB) {
-        Remove-Item $xamppInstaller -Force
-        throw "XAMPP download appears corrupt or incomplete (only $([math]::Round($installerSize/1KB)) KB). " +
-              "Please download manually from https://www.apachefriends.org/download.html " +
-              "and place the installer at: $xamppInstaller"
+        Remove-Item $xamppInstaller -Force -ErrorAction SilentlyContinue
+        throw "XAMPP installer is only $([math]::Round($installerSize/1KB)) KB — this is an HTML page, not the binary.`n" +
+              "SourceForge is blocking automated downloads. Please:`n" +
+              "  1. Download XAMPP 8.2.12 (Windows x64) manually from https://www.apachefriends.org/download.html`n" +
+              "  2. Rename/copy the file to: $xamppInstaller`n" +
+              "  3. Re-run this script."
     }
 
     Write-Host "  Running XAMPP silent install..." -ForegroundColor Gray
