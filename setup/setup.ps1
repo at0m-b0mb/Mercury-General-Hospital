@@ -71,6 +71,8 @@ if (-not (Test-Path "$XamppPath\xampp-control.exe")) {
             $wc.Headers.Add("User-Agent", $ua)
             try {
                 $wc.DownloadFile($cdnUrl, $xamppInstaller)
+            } catch {
+                Write-Host "  CDN download failed: $_" -ForegroundColor Yellow
             } finally {
                 $wc.Dispose()
             }
@@ -80,6 +82,8 @@ if (-not (Test-Path "$XamppPath\xampp-control.exe")) {
             $wc.Headers.Add("User-Agent", $ua)
             try {
                 $wc.DownloadFile($xamppSfPage, $xamppInstaller)
+            } catch {
+                Write-Host "  Direct download also failed: $_" -ForegroundColor Yellow
             } finally {
                 $wc.Dispose()
             }
@@ -88,14 +92,14 @@ if (-not (Test-Path "$XamppPath\xampp-control.exe")) {
 
     # Sanity-check: a real installer is several hundred MB; an HTML error page
     # is tiny. Abort early with a clear message instead of a cryptic COM error.
-    $installerSize = (Get-Item $xamppInstaller).Length
-    if ($installerSize -lt 10MB) {
+    if (-not (Test-Path $xamppInstaller) -or (Get-Item $xamppInstaller).Length -lt 10MB) {
         Remove-Item $xamppInstaller -Force -ErrorAction SilentlyContinue
-        $msg  = "XAMPP installer is only $([math]::Round($installerSize/1KB)) KB - this is an HTML page, not the binary.`n"
-        $msg += "SourceForge is blocking automated downloads. Please:`n"
-        $msg += "  1. Download XAMPP 8.2.12 (Windows x64) from https://www.apachefriends.org/download.html`n"
-        $msg += "  2. Copy the downloaded file to: $xamppInstaller`n"
-        $msg += "  3. Re-run this script."
+        $msg  = "Could not automatically download the XAMPP installer (SourceForge blocks automated downloads).`n"
+        $msg += "Please download it manually:`n"
+        $msg += "  1. Go to https://www.apachefriends.org/download.html`n"
+        $msg += "  2. Download the Windows x64 installer`n"
+        $msg += "  3. Copy the downloaded .exe to: $xamppInstaller`n"
+        $msg += "  4. Re-run this script."
         throw $msg
     }
 
