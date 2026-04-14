@@ -44,12 +44,14 @@ if (-not (Test-Path "$XamppPath\xampp-control.exe")) {
         # Prefer curl.exe (ships with Windows 10 1803+).  It follows SourceForge's
         # multi-hop redirects reliably; WebClient can get stuck on the HTML mirror-
         # selector page that SourceForge sometimes returns.
-        $curlBin = (Get-Command curl.exe -ErrorAction SilentlyContinue)?.Source
+        # Note: avoid ?. (null-conditional) — not supported on Windows PowerShell 5.1.
+        $curlCmd = Get-Command curl.exe -ErrorAction SilentlyContinue
+        $curlBin = if ($curlCmd) { $curlCmd.Source } else { $null }
         if ($curlBin) {
             Write-Host "  Using curl.exe..." -ForegroundColor Gray
-            $curlArgs = "-L", "--max-redirs", "10", "--retry", "3",
-                        "-A", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
-                        "-o", $xamppInstaller, $xamppUrl
+            $curlArgs = @("-L", "--max-redirs", "10", "--retry", "3",
+                          "-A", "curl/7.0 (Windows)",
+                          "-o", $xamppInstaller, $xamppUrl)
             $curl = Start-Process -FilePath $curlBin -ArgumentList $curlArgs `
                         -Wait -PassThru -NoNewWindow
             if ($curl.ExitCode -eq 0 -and
