@@ -23,9 +23,13 @@ Write-Host "[1/6] Checking for XAMPP..." -ForegroundColor Yellow
 
 $xamppInstaller = "$env:TEMP\xampp-installer.exe"
 
-# SourceForge direct download URL for XAMPP 8.2.12 Windows x64.
-# The Apache Friends CDN URL for this version no longer resolves (404).
-$xamppUrl = "https://downloads.sourceforge.net/project/xampp/XAMPP%20Windows/8.2.12/xampp-windows-x64-8.2.12-0-VS16-installer.exe"
+# SourceForge download URL with ?use_mirror=autoselect.
+# This makes SourceForge return an HTTP 302 redirect straight to the binary
+# on a CDN mirror, instead of the HTML countdown/selector page.
+# The Referer header is required - SourceForge checks it and serves the
+# HTML page (not a redirect) if the request looks like it has no referrer.
+$xamppUrl     = "https://sourceforge.net/projects/xampp/files/XAMPP%20Windows/8.2.12/xampp-windows-x64-8.2.12-0-VS16-installer.exe/download?use_mirror=autoselect"
+$xamppReferer = "https://www.apachefriends.org/download.html"
 
 if (-not (Test-Path "$XamppPath\xampp-control.exe")) {
 
@@ -37,13 +41,13 @@ if (-not (Test-Path "$XamppPath\xampp-control.exe")) {
     if ($preExisting) {
         Write-Host "  Found pre-placed installer at $xamppInstaller - skipping download." -ForegroundColor Gray
     } else {
-        Write-Host "  Downloading XAMPP installer..." -ForegroundColor Gray
+        Write-Host "  Downloading XAMPP installer (this may take a few minutes)..." -ForegroundColor Gray
 
         $downloaded = $false
 
-        # Prefer curl.exe (ships with Windows 10 1803+). It follows SourceForge
-        # multi-hop redirects reliably. WebClient can get an HTML mirror-selector
-        # page instead of the binary.
+        # Prefer curl.exe (ships with Windows 10 1803+). It follows HTTP 302
+        # redirects reliably. The -e flag sets the Referer header that
+        # SourceForge requires to serve a redirect instead of HTML.
         # Note: avoid the ?. operator - not supported on Windows PowerShell 5.1.
         $curlCmd = Get-Command curl.exe -ErrorAction SilentlyContinue
         $curlBin = if ($curlCmd) { $curlCmd.Source } else { $null }
@@ -51,7 +55,8 @@ if (-not (Test-Path "$XamppPath\xampp-control.exe")) {
         if ($curlBin) {
             Write-Host "  Using curl.exe..." -ForegroundColor Gray
             $curlArgs = @("-L", "--max-redirs", "10", "--retry", "3",
-                          "-A", "curl/7.0 (Windows)",
+                          "-e", $xamppReferer,
+                          "-A", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
                           "-o", $xamppInstaller, $xamppUrl)
             $curl = Start-Process -FilePath $curlBin -ArgumentList $curlArgs `
                         -Wait -PassThru -NoNewWindow
@@ -66,6 +71,7 @@ if (-not (Test-Path "$XamppPath\xampp-control.exe")) {
             Write-Host "  Falling back to WebClient..." -ForegroundColor Gray
             $wc = New-Object System.Net.WebClient
             $wc.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
+            $wc.Headers.Add("Referer", $xamppReferer)
             try {
                 $wc.DownloadFile($xamppUrl, $xamppInstaller)
             } finally {
