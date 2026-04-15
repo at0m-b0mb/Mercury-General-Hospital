@@ -1,5 +1,14 @@
-# 🔐 Walkthrough — Mercury General Hospital CTF
-> **FOR CTF ORGANIZERS ONLY — do not distribute to players**
+# 🏥 Mercury General Hospital — CTF Walkthrough
+
+<div align="center">
+
+**EN.650.631 · Ethical Hacking · Spring 2026**
+
+*Group 1 Project — Created by Kailash & Krishita*
+
+</div>
+
+> ⚠️ **FOR CTF ORGANIZERS ONLY — do not distribute to players**
 
 ---
 
